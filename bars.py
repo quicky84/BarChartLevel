@@ -17,10 +17,11 @@ class BarEx(object):
 
     epsilon = 100  # max pixel distance to count as a vertex hit
 
-    def __init__(self, axes, mybars, canvas):
+    def __init__(self, axes, mybars, roof, canvas):
         # bars = {'names': ( strings ), 'ci95': [(2x float)]}
         self.axes = axes
         self.canvas = canvas
+        self.roof = roof
 
         self.axes.set_frame_on(False)
         self.axes.yaxis.tick_right()
@@ -45,18 +46,36 @@ class BarEx(object):
     def boxes(self, run = 1):
         # value to judge closeness to the means
         v = self.base.get_ydata()[0]
+        r = self.roof
 
         pos = np.arange(len(self.bars_data['names']))
         means = [np.mean(x) for x in self.bars_data['ci95']]
-        err = [np.abs(s1-s0) for s0, s1 in self.bars_data['ci95']]
-        reds = [1 - np.min([np.abs(m-v), e])/e for m, e in zip(means, err)]
-        colors = [(r, 0, 1-r) for r in reds]
+        err = [np.abs(s1-s0)/2 for s0, s1 in self.bars_data['ci95']]
+
+        colors = []
+        for s0, s1 in self.bars_data['ci95']:
+            if (s0 <= v) & (v <= s1):
+                m = (s0+s1)/2
+                e = (s1-s0)/2
+                colors.append((1, 1, 1-np.min([np.abs(m-v), e])/e))
+                continue
+            if v < s0:
+                colors.append((0, 0, 0.5*(1+v/s0)))
+                continue
+            if v > s1:
+                colors.append((1-0.5*(v-s1)/(r-s1), 0, 0))
+                continue
+
+        # simple cloring: red if close to the mean, blue if far
+        # reds = [1 - np.min([np.abs(m-v), e])/e for m, e in zip(means, err)]
+        # colors = [(r, 0, 1-r) for r in reds]
 
         if run == 0:
-            self.bars = self.axes.bar(pos, means, color=colors, width=0.5, align='center', zorder=-1, yerr=err)
+            self.bars = self.axes.bar(pos, means, color=colors, width=0.5, align='center', zorder=-1, yerr=err, edgecolor='k')
         else:
             for b, c in zip(self.bars, colors):
                 b.set_color(c)
+                b.set_edgecolor('k')
 
     def annotate(self, run = 1):
         v = self.base.get_ydata()[0]
@@ -97,7 +116,8 @@ class BarEx(object):
         if event.button != 1:
             return
 
-        self.base.set_ydata([event.ydata]*2)
+        v = np.min([event.ydata, self.roof])
+        self.base.set_ydata([v]*2)
         self.draw()
 
     def button_release(self, event):
@@ -119,13 +139,13 @@ ci95 = df.apply(lambda x:st.t.interval(0.95, len(x)-1, loc = np.mean(x), scale =
 
 values = np.hstack(ci95.values)
 M = np.max(values)
-M += 0.1*M
+M += 0.2*M
 
 fig, ax=plt.subplots(figsize=(10, 7))
 ax.set_ylim(0, M)
 ax.set_xlim(-2, len(ci95.values)+1)
 
 bars={'names': tuple(ci95.index), 'ci95': ci95.values}
-be=BarEx(ax, bars, fig.canvas)
+be=BarEx(ax, bars, 0.99*M, fig.canvas)
 
 plt.show()
