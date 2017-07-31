@@ -15,7 +15,7 @@ class BarEx(object):
     BarChart with draggable level
     """
 
-    epsilon = 20  # max pixel distance to count as a vertex hit
+    epsilon = 100  # max pixel distance to count as a vertex hit
 
     def __init__(self, axes, mybars, canvas):
         # bars = {'names': ( strings ), 'ci95': [(2x float)]}
@@ -119,7 +119,7 @@ ci95 = df.apply(lambda x:st.t.interval(0.95, len(x)-1, loc = np.mean(x), scale =
 
 values = np.hstack(ci95.values)
 M = np.max(values)
-M += 0.2*M
+M += 0.1*M
 
 fig, ax=plt.subplots(figsize=(10, 7))
 ax.set_ylim(0, M)
